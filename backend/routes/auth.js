@@ -52,9 +52,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const authMiddleware = require('../middlewares/authMiddleware'); 
+const { registerValidation, validate } = require('../middlewares/validators'); 
 
 // Register user
-router.post('/register', async (req, res) => {
+router.post('/register', registerValidation, validate, async (req, res) => {
   const { name, email, password } = req.body;
   try {
     let user = await User.findOne({ email });
@@ -157,6 +159,45 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// Fetch profile data
+router.get('/profile', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id; // Extract user ID from request (set by authMiddleware)
+    const user = await User.findById(userId).select('-password'); // Exclude password field
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Update profile data
+router.put('/profile', authMiddleware, async (req, res) => {
+  const { firstName, lastName, birthday, gender, email, phone } = req.body;
+
+  try {
+    const userId = req.user.id; // Extract user ID from request (set by authMiddleware)
+    const user = await User.findById(userId);
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Update user fields
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.birthday = birthday || user.birthday;
+    user.gender = gender || user.gender;
+    user.email = email || user.email;
+    user.phone = phone || user.phone;
+
+    await user.save();
+    res.status(200).json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
 module.exports = router;
-
-
